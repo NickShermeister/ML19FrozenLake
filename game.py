@@ -36,7 +36,7 @@ class Game(object):
         self.close_editor = pygame.mixer.Sound("audio/close_editor.wav")
         self.mus.set_volume(0.5)
         self.mus.play(-1)
-        
+
         self.swish_noise.set_volume(0.7)
         self.nope.set_volume(0.1)
         self.close_editor.set_volume(0.1)
@@ -59,7 +59,7 @@ class Game(object):
         self.black_alpha = 255.0
         self.black_screen.set_alpha(self.black_alpha)
         self.black_shade = DOWN
-        
+
         self.delay = 0
         self.command_font = pygame.font.SysFont("monospace", 12)
         self.command_rectangles = {}
@@ -81,8 +81,8 @@ class Game(object):
     def update_mana_bar(self, dt):
         dm = self.player.mana - self.display_mana
         self.display_mana += dm * dt * 20.0
-        
-	
+
+
     def render_health(self, surf):
 
         mana = self.player.mana
@@ -179,6 +179,8 @@ class Game(object):
         while True:
             # Game logic up here
             now = time.time()
+            # Change real_dt if you want to let everything jump to stable state
+            # If we set it to 1 second, will jump 1 second into future
             real_dt = now - then
             then = now
 
@@ -219,10 +221,11 @@ class Game(object):
                             break
             # Drawing goes here
             # TODO remove fill functions once screen is completely filled with tiles
+            # Comment out this and below that has "render" or "draw"; keep "update" to stop drawing things
             self.screen.fill((0, 0, 0))
             for obj in self.movers + self.effects + [self.editor]:
                 obj.update(dt)
-            
+
             self.update_camera_target()
             #self.map.update(dt, (0, 30), (0, 30))
             self.draw_map()
@@ -235,6 +238,8 @@ class Game(object):
             self.update_mana_bar(dt)
             self.update_screen()
             self.draw_fps(dt)
+
+            # Removing this stops driving to screen
             pygame.display.flip()
 
 
@@ -316,7 +321,7 @@ class Game(object):
             self.level += 1
         self.movers = [self.player]
         self.effects = [self.player.slash]
-        self.map = Map((30, 30))        
+        self.map = Map((30, 30))
         spawn = self.map.populate_path(self, self.level)
         self.player.x = spawn[0]
         self.player.y = spawn[1]
@@ -329,7 +334,7 @@ class Game(object):
         self.player.macro = False
 
         LevelPreview(self)
-        
+
         self.black_shade = DOWN
         self.black_alpha = 255.0
 
