@@ -27,7 +27,14 @@ RIGHT = (1,0)
 LEFT = (-1,0)
 DOWN = (0,1)
 UP = (0,-1)
+SPACE = (0,0)
 directions = [UP, DOWN, LEFT, RIGHT]
+ACTIONS = [UP, DOWN, LEFT, RIGHT, SPACE]
+corners = [ (-1, -1), (1, 1), (-1, 1), (1, -1) ]
+far_squares = directions * 2
+neighbors = directions + corners + [(0,0)]
+all_squares = directions + corners + far_squares
+
 
 KEYDICT = {pygame.K_a: "a",
            pygame.K_b: "b",

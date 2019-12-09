@@ -2,6 +2,7 @@ import pygame
 import sys
 import time
 import os
+import random
 from math import sin, pi
 from sprite_tools import *
 from constants import *
@@ -13,6 +14,12 @@ from enemy import *
 from editor import *
 from character_select import *
 from level_preview import *
+from map import Wall, Stairs
+from copy import deepcopy
+
+EPSILON = 0.5
+ALPHA = 0.1
+DISCOUNT = 0.95
 
 class Game(object):
 
@@ -75,6 +82,8 @@ class Game(object):
 		self.display_mana = self.player.mana
 		self.empty_tile = pygame.image.load("images/empty_tile_small.png")
 
+		self.values = dict()
+
 		self.load_level()
 
 
@@ -113,16 +122,125 @@ class Game(object):
 			hp -= 1
 
 
+	def getQValue(self, state, action):
+		statetup = tuple(state)
+		if statetup in self.values and action in self.values[statetup]:
+			return self.values[statetup][action]
+		else:
+			return 0.0
+
+	def getLegalActions(self, state):
+		all_legal = [(0,0)]
+		for i,x in enumerate(state):
+			if i <= 7 and x != 'wall':
+				all_legal.append(all_squares[i])
+
+		# print(all_legal)
+		return all_legal
+
+	def computeValueFromQValues(self, state):
+		possibleActions = self.getLegalActions(state)
+		if len(possibleActions) == 0:
+			return 0.0
+		max_act = None
+		max_val = None
+		q_values = [self.getQValue(state, action)for action in possibleActions]
+		return max(q_values)
+
+	def computeActionFromQValues(self, state):
+		possibleActions = self.getLegalActions(state)
+		if len(possibleActions) == 0:
+			return None
+		max_act = None
+		max_val = None
+		q_values = [self.getQValue(state,action) for action in possibleActions]
+		action = possibleActions[q_values.index(max(q_values))]
+		return action
+
+	def getAction(self, state):
+		legalActions = self.getLegalActions(state)
+		action = None
+		"*** YOUR CODE HERE ***"
+		eps = (random.random() <= EPSILON)
+		if eps:
+			print("eps")
+			action = random.choice(legalActions)
+		else:
+			print("norm")
+			action = self.computeActionFromQValues(state)
+		return action
+
+	def update(self, state, action, nextState, reward):
+		statetup = tuple(state)
+		if statetup not in self.values:
+			self.values[statetup] = dict()
+
+		if action not in self.values[statetup]:
+			self.values[statetup][action] = 0.0
+
+		futureReward = self.computeValueFromQValues(nextState)
+		temp_val = (1-ALPHA)*self.getQValue(state,action) + ALPHA*(reward + DISCOUNT*futureReward)
+		self.values[statetup][action] = temp_val
+
+	def rewardcalc(self, state):
+		pass
+
+
+	def get_state(self):
+		adj_squares = directions
+		game_state = ["tile"] * len(all_squares)
+		for ind, square in enumerate(all_squares):
+			thing_in_square = "empty"
+			for obj in self.map.get((self.player.x + square[0], self.player.y + square[1])):
+				# print(type(obj))
+				# print(Enemy)
+				if issubclass(type(obj), Enemy):
+					print("1")
+					thing_in_square = "enemy"
+				elif isinstance(type(obj), Wall):
+					print("2")
+					thing_in_square = "wall"
+				elif isinstance(type(obj), Stairs):
+					print("3")
+					thing_in_square = "stairs"
+			game_state[ind] = thing_in_square
+		return game_state
+
 	def handle_events(self, events):
 		self.editor.update_mouse_events(events)
 
 		# Extract features from map; map this to a new state
+		print("---------------------------")
+		# for state, square_cont in zip(game_state, all_squares):
+		# game_state = deepcopy(all_squares)
+		game_state = self.get_state()
+
+		print(game_state)
+		# for square in all_squares:
+		#     enemies = set([Bug, Ebat, Bit, FlameSpawner, GroundHazard, GroundHazard_Fixed, Bomb, Hedgehog ])
+		#     in_square = set(square)
+		#     if enemies & in_square:
+		#         square.append("enemy")
+		#     for obj in square:
+		#         if issubclass(obj, Enemy):
+		#             square.append("enemy")
+			# if set(all_squares) :
+
 
 		# Get the best event using q-learning
-		event = random.choice([(0,-1), (0, 1), (0,0), (-1, 0), (1,0)])
-		self.move_player(event[0], event[1])
+		event = self.getAction(game_state)
+		# event = random.choice(ACTIONS)
+		if self.player.hp > 0:
+			self.last_hp = self.player.hp
+
+			self.move_player(event[0], event[1])
+			game_state2 = self.get_state()
+			# reward = self.rewardcalc()
+			reward = 0
+			self.update(game_state, event, game_state2, reward)
 
 		# Update q-table
+		# self.update()
 
 
 	def main(self):
@@ -142,7 +260,6 @@ class Game(object):
 
 			dt = self.camera.update(real_dt)
 			dt = min(dt, 1/30.0)
-
 			events = pygame.event.get()
 			self.handle_events(events)
 
@@ -183,7 +300,6 @@ class Game(object):
 				obj.update(dt)
 
 			self.update_camera_target()
-			#self.map.update(dt, (0, 30), (0, 30))
 			self.draw_map()
 
 			#self.player.draw(self.screen)
@@ -256,7 +372,7 @@ class Game(object):
 			return
 		if len(self.turn_queue) and self.turn_queue[0] is self.player:
 			self.player.translate(dx, dy)
-			self.delay += 0.05
+			self.delay += 0.5
 			if end_turn:
 				self.player.turns -= 1
 				self.player.mana = min(self.player.mana_max, self.player.mana + 1)
@@ -267,18 +383,20 @@ class Game(object):
 		self.black_shade = UP
 		self.stairs_sound.play()
 
-	def load_level(self, game_over=False):
+	def load_level(self, game_over=False, seed=18):
+		random.seed(seed)
 		if game_over:
 			self.level = 1
 			self.editor = Editor(self)
 			self.sel = CharacterSelect(self.screen_blit).sel
 			self.player = Player(self, 0, 0, self.sel)
+			# Add agent dying? Reset agent?
 		else:
 			self.level += 1
 		self.movers = [self.player]
 		self.effects = [self.player.slash]
 		self.map = Map((30, 30))
-		spawn = self.map.populate_path(self, self.level)
+		spawn = self.map.populate_path(self, self.level, wall_ratio=0.0)
 		self.player.x = spawn[0]
 		self.player.y = spawn[1]
 		self.player.map = self.map
