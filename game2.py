@@ -131,9 +131,9 @@ class Game(object):
 
 	def getLegalActions(self, state):
 		all_legal = [(0,0)]
-		for i,x in enumerate(state):
-			if i <= 7 and x != 'wall':
-				all_legal.append(all_squares[i])
+		for i in range(len(directions)):
+			if state[i] != 'wall':
+				all_legal.append(directions[i])
 
 		# print(all_legal)
 		return all_legal
@@ -193,15 +193,15 @@ class Game(object):
 			thing_in_square = "empty"
 			for obj in self.map.get((self.player.x + square[0], self.player.y + square[1])):
 				print(type(obj))
-				print(type(Wall))
+				# print(type(Wall()))
 				# print(Enemy)
 				if issubclass(type(obj), Enemy):
 					print("1")
 					thing_in_square = "enemy"
-				elif isinstance(type(obj), Wall):
+				elif type(obj) == Wall:
 					print("2")
 					thing_in_square = "wall"
-				elif isinstance(type(obj), Stairs):
+				elif type(obj) == Stairs:
 					print("3")
 					thing_in_square = "stairs"
 			game_state[ind] = thing_in_square
