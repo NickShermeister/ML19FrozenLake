@@ -10,7 +10,7 @@ class LevelPreview(object):
         self.black = pygame.Surface(WINDOW_SIZE).convert()
         self.black.fill((0, 0, 0))
         self.black_alpha = 255
-        self.duration = 1.5
+        self.duration = 0.4
 
         self.gray = (100, 100, 100)
         self.hp_surf = pygame.Surface((80, 30))
@@ -31,16 +31,18 @@ class LevelPreview(object):
         start_time = time.time()
         then = start_time
         time.sleep(0.001)
-        rate = 400
-        
+        rate = 1000
+
+        # return
+
         while True:
             now = time.time()
             dt = now - then
             then = now
-            
+
             pygame.event.pump()
 
-            
+
             if now - start_time > self.duration:
                 self.black_alpha += dt*rate
                 if self.black_alpha >= 255:
@@ -48,7 +50,7 @@ class LevelPreview(object):
                 self.black.set_alpha(self.black_alpha)
             else:
                 self.black_alpha = max(self.black_alpha - dt*rate, 0)
-            
+
 
             self.game.screen.fill(self.gray)
             self.black.set_alpha(self.black_alpha)
@@ -63,7 +65,7 @@ class LevelPreview(object):
                         WINDOW_HEIGHT/2 - 40)
             self.game.screen.blit(self.level_text_shadow, (text_pos[0], text_pos[1] + 1))
             self.game.screen.blit(self.level_text, text_pos)
-            
+
             self.game.screen.blit(self.black, (0, 0))
             self.game.screen_blit.blit(pygame.transform.scale(self.game.screen,
                                                               BLIT_SIZE),

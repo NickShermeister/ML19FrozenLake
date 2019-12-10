@@ -81,6 +81,7 @@ class Enemy(GameObject):
             self.drop_item()
         if hasattr(self, "death_noise"):
             self.death_noise.play()
+        self.game.killed_enemy = True
 
     def drop_item(self, value=1):
         direction = random.randint(0,3)
@@ -124,7 +125,7 @@ class Enemy(GameObject):
 
 
 class Bug(Enemy):
-    
+
     def __init__(self, game, x, y):
         Enemy.__init__(self, game, x, y, delay=1.0, behavior=ai.approach_player_smart, hp=2)
         readied = SpriteSheet("images/bug_readied.png", (2, 1), 2)
@@ -186,7 +187,7 @@ class FlameSpawner(Enemy): #Needs art, flame dude
 
     def spawn(self, x, y):
         GroundHazard(self.game, x, y)
-        
+
 class GroundHazard(Enemy): #Needs art, flame
 
     def __init__(self, game, x, y):
@@ -214,7 +215,7 @@ class GroundHazard(Enemy): #Needs art, flame
         elif self.height == 1 and self.hp <= 1:
             self.height = 0
             self.sprite.start_animation("Low")
-        
+
 
 class GroundHazard_Fixed(Enemy): #Needs art, spikes
 
@@ -246,4 +247,3 @@ class Hedgehog(Enemy): #Needs art, moves fast
         self.death_noise = self.game.byte_noise
         self.sprite.add_animation({"Idle": idle})
         self.sprite.start_animation("Idle")
-

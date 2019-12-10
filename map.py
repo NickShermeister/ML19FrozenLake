@@ -283,6 +283,7 @@ class Stairs(Tile):
 
 	def __init__(self, game, x, y, fps=4):
 		Tile.__init__(self, game, x, y, fps=fps)
+		game.stairloc = (x,y)
 		self.layer = FLOOR_LAYER
 		sprite_paths = "images/stair.png"
 		static = SpriteSheet(sprite_paths, (1, 1), 1)

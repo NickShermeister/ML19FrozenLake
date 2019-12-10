@@ -17,7 +17,7 @@ from level_preview import *
 from map import Wall, Stairs
 from copy import deepcopy
 
-EPSILON = 0.5
+EPSILON = 0.1
 ALPHA = 0.1
 DISCOUNT = 0.95
 
@@ -83,6 +83,7 @@ class Game(object):
 		self.empty_tile = pygame.image.load("images/empty_tile_small.png")
 
 		self.values = dict()
+		self.last_hp = 0
 
 		self.load_level()
 
@@ -163,14 +164,14 @@ class Game(object):
 		"*** YOUR CODE HERE ***"
 		eps = (random.random() <= EPSILON)
 		if eps:
-			print("eps")
+			# print("eps")
 			action = random.choice(legalActions)
 		else:
-			print("norm")
+			# print("norm")
 			action = self.computeActionFromQValues(state)
 		return action
 
-	def update(self, state, action, nextState, reward):
+	def updateQ(self, state, action, nextState, reward):
 		statetup = tuple(state)
 		if statetup not in self.values:
 			self.values[statetup] = dict()
@@ -181,10 +182,43 @@ class Game(object):
 		futureReward = self.computeValueFromQValues(nextState)
 		temp_val = (1-ALPHA)*self.getQValue(state,action) + ALPHA*(reward + DISCOUNT*futureReward)
 		self.values[statetup][action] = temp_val
+		# print(self.values)
 
-	def rewardcalc(self, state):
-		pass
+	def get_reward(self, state, action, next_state):
+		# HP going down is bad
+		reward = -1
+		if self.last_hp != self.player.hp:
+			reward -= 500
+			if self.player.hp == 0:
+				reward -= 10000
+		# Entering stairs is good
+		if (self.player.x, self.player.y) == self.stairloc:
+			reward += 1000
 
+		# Going towards stairs is good
+		if state[-2] == 1 and action[0] == 1:
+			reward += 10
+		elif state[-2] == -1 and action[0] == -1:
+			reward += 10
+		elif state[-1] == -1 and action[1] == 1:
+			reward += 10
+		elif state[-1] == -1 and action[1] == -1:
+			reward += 10
+		elif state[-2] == 1 and action[0] == -1:
+			reward -= 20
+		elif state[-2] == -1 and action[0] == 1:
+			reward -= 20
+		elif state[-1] == -1 and action[1] == -1:
+			reward -= 20
+		elif state[-1] == -1 and action[1] == 1:
+			reward -= 20
+
+		# Killing an enemy is good
+		if self.killed_enemy == True:
+			reward += 100
+
+		print(reward)
+		return reward
 
 	def get_state(self):
 		adj_squares = directions
@@ -192,59 +226,65 @@ class Game(object):
 		for ind, square in enumerate(all_squares):
 			thing_in_square = "empty"
 			for obj in self.map.get((self.player.x + square[0], self.player.y + square[1])):
-				print(type(obj))
+				# print(type(obj))
 				# print(type(Wall()))
 				# print(Enemy)
 				if issubclass(type(obj), Enemy):
-					print("1")
+					# print("1")
 					thing_in_square = "enemy"
 				elif type(obj) == Wall:
-					print("2")
+					# print("2")
 					thing_in_square = "wall"
 				elif type(obj) == Stairs:
-					print("3")
+					# print("3")
 					thing_in_square = "stairs"
 			game_state[ind] = thing_in_square
+		# determine if we moved closer to the stairs
+
+		# compare
+		if self.player.x - self.stairloc[0] > 0:
+			game_state.append(-1)
+		elif self.player.x - self.stairloc[0] < 0:
+			game_state.append(1)
+		else:
+			game_state.append(0)
+
+		if self.player.y - self.stairloc[1] > 0:
+			game_state.append(-1)
+		elif self.player.y - self.stairloc[1] < 0:
+			game_state.append(1)
+		else:
+			game_state.append(0)
+
 		return game_state
 
 	def handle_events(self, events):
 		self.editor.update_mouse_events(events)
 
 		# Extract features from map; map this to a new state
-		print("---------------------------")
-		# for state, square_cont in zip(game_state, all_squares):
-		# game_state = deepcopy(all_squares)
+		# print("---------------------------")
 		game_state = self.get_state()
 
-		print(game_state)
-		# for square in all_squares:
-		#     enemies = set([Bug, Ebat, Bit, FlameSpawner, GroundHazard, GroundHazard_Fixed, Bomb, Hedgehog ])
-		#     in_square = set(square)
-		#     if enemies & in_square:
-		#         square.append("enemy")
-		#     for obj in square:
-		#         if issubclass(obj, Enemy):
-		#             square.append("enemy")
-			# if set(all_squares) :
-
-
+		# print(game_state)
 		# Get the best event using q-learning
-		event = self.getAction(game_state)
+		action = self.getAction(game_state)
 		# event = random.choice(ACTIONS)
-		if self.player.hp > 0:
+		if self.player.hp > 0 and not (self.player.x, self.player.y) == self.stairloc:
 			self.last_hp = self.player.hp
+			self.lastloc = (self.player.x, self.player.y)
 
-			self.move_player(event[0], event[1])
+			self.move_player(action[0], action[1])
 			game_state2 = self.get_state()
-			# reward = self.rewardcalc()
 			reward = 0
-			self.update(game_state, event, game_state2, reward)
-
-		# Update q-table
-		# self.update()
+			self.killed_enemy = False
+			reward = self.get_reward(game_state, action, game_state2)
+			self.updateQ(game_state, action, game_state2, reward)
 
 
 	def main(self):
+
+		self.episode = 0
+		self.ep_last_hp = None
 
 		self.dts = []
 		then = time.time()
@@ -293,31 +333,40 @@ class Game(object):
 								mover.move()
 						if self.delay > 0:
 							break
+
+			if self.player.hp == 0 and self.ep_last_hp != 0:
+				self.episode += 1
+				print("episode", self.episode)
+
+			self.ep_last_hp = self.player.hp
+
 			# Drawing goes here
 			# TODO remove fill functions once screen is completely filled with tiles
 			# Comment out this and below that has "render" or "draw"; keep "update" to stop drawing things
-			self.screen.fill((0, 0, 0))
 			for obj in self.movers + self.effects + [self.editor]:
 				obj.update(dt)
-
-			self.update_camera_target()
-			self.draw_map()
-
-			#self.player.draw(self.screen)
-			#self.terminal.draw(self.screen)
-			self.render_health(self.screen)
-			self.editor.draw(self.screen)
 			self.update_black_screen(dt)
 			self.update_mana_bar(dt)
-			self.update_screen()
 			self.draw_fps(dt)
+			self.update_screen()
 
-			# Removing this stops driving to screen
-			pygame.display.flip()
+			if self.episode % 20 == 0 or True:
+				self.screen.fill((0, 0, 0))
+
+				self.update_camera_target()
+				self.draw_map()
+
+				#self.player.draw(self.screen)
+				#self.terminal.draw(self.screen)
+				self.render_health(self.screen)
+				self.editor.draw(self.screen)
+
+				# Removing this stops driving to screen
+				pygame.display.flip()
 
 
 	def update_black_screen(self, dt):
-		rate = 350
+		rate = 2000 #higher = less black screen
 		if self.black_shade == UP:
 			self.black_alpha = min(self.black_alpha + rate*dt, 255)
 		elif self.black_shade == DOWN:
@@ -373,7 +422,7 @@ class Game(object):
 			return
 		if len(self.turn_queue) and self.turn_queue[0] is self.player:
 			self.player.translate(dx, dy)
-			self.delay += 0.5
+			self.delay += 0.01
 			if end_turn:
 				self.player.turns -= 1
 				self.player.mana = min(self.player.mana_max, self.player.mana + 1)
@@ -442,8 +491,8 @@ class Camera(object):
 		dx = self.target_x - self.x
 		dy = self.target_y - self.y
 
-		self.x += dx * dt * 5
-		self.y += dy * dt * 5
+		self.x += dx * dt * 20
+		self.y += dy * dt * 20
 
 		self.shake_amp *= 0.04**dt
 

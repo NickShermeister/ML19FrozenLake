@@ -349,7 +349,7 @@ class Camera(object):
         self.target_x = 0
         self.target_y = 0
 
-        self.speed = 1.0
+        self.speed = 5.0 # speeds up animation
 
         self.shake_max_amp = 4
         self.shake_amp = 0
@@ -367,8 +367,8 @@ class Camera(object):
         dx = self.target_x - self.x
         dy = self.target_y - self.y
 
-        self.x += dx * dt * 5
-        self.y += dy * dt * 5
+        self.x += dx
+        self.y += dy
 
         self.shake_amp *= 0.04**dt
 

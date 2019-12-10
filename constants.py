@@ -31,7 +31,7 @@ SPACE = (0,0)
 directions = [UP, DOWN, LEFT, RIGHT]
 ACTIONS = [UP, DOWN, LEFT, RIGHT, SPACE]
 corners = [ (-1, -1), (1, 1), (-1, 1), (1, -1) ]
-far_squares = directions * 2
+far_squares = [(0,2), (2,0), (0, -2), (-2,0)]
 neighbors = directions + corners + [(0,0)]
 all_squares = directions + corners + far_squares
 
