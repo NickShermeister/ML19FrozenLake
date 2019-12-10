@@ -192,7 +192,8 @@ class Game(object):
 		for ind, square in enumerate(all_squares):
 			thing_in_square = "empty"
 			for obj in self.map.get((self.player.x + square[0], self.player.y + square[1])):
-				# print(type(obj))
+				print(type(obj))
+				print(type(Wall))
 				# print(Enemy)
 				if issubclass(type(obj), Enemy):
 					print("1")
