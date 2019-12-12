@@ -17,9 +17,11 @@ from level_preview import *
 from map import Wall, Stairs
 from copy import deepcopy
 
-EPSILON = 0.1
-ALPHA = 0.1
+EPSILON = 0.5
+ALPHA = 0.2
 DISCOUNT = 0.95
+EXPLORE = 500
+EP_DIFF = EPSILON/EXPLORE
 
 class Game(object):
 
@@ -60,6 +62,7 @@ class Game(object):
 		self.player = Player(self, 0, 0, idx = self.sel)
 		self.camera = Camera()
 		self.level = 0
+		self.epsilon = EPSILON
 
 		self.black_screen = pygame.Surface(WINDOW_SIZE).convert()
 		self.black_screen.fill((0, 0, 0))
@@ -162,7 +165,7 @@ class Game(object):
 		legalActions = self.getLegalActions(state)
 		action = None
 		"*** YOUR CODE HERE ***"
-		eps = (random.random() <= EPSILON)
+		eps = (random.random() <= self.epsilon)
 		if eps:
 			# print("eps")
 			action = random.choice(legalActions)
@@ -186,7 +189,7 @@ class Game(object):
 
 	def get_reward(self, state, action, next_state):
 		# HP going down is bad
-		reward = -1
+		reward = -5
 		if self.last_hp != self.player.hp:
 			reward -= 500
 			if self.player.hp == 0:
@@ -194,6 +197,7 @@ class Game(object):
 		# Entering stairs is good
 		if (self.player.x, self.player.y) == self.stairloc:
 			reward += 1000
+			self.num_turns -= 500
 
 		# Going towards stairs is good
 		if state[-2] == 1 and action[0] == 1:
@@ -215,9 +219,17 @@ class Game(object):
 
 		# Killing an enemy is good
 		if self.killed_enemy == True:
-			reward += 100
+			reward += 200
 
-		print(reward)
+		obj = self.map.get((self.player.x + action[0]), (self.player.y + action[1]))
+		if issubclass(obj, Enemy):
+			if type(obj) == GroundHazard_Fixed or type(obj) == GroundHazard:
+				pass
+			else:
+				if obj.hp < obj.max_hp:
+					reward += 50
+
+		# print(reward)
 		return reward
 
 	def get_state(self):
@@ -231,7 +243,13 @@ class Game(object):
 				# print(Enemy)
 				if issubclass(type(obj), Enemy):
 					# print("1")
-					thing_in_square = "enemy"
+					if type(obj) == GroundHazard_Fixed or type(obj) == GroundHazard:
+						thing_in_square = "hazard"
+					else:
+						if obj.countdown > 0:
+							thing_in_square = "enemy" + str(obj.hp)
+						else:
+							thing_in_square = "attack"
 				elif type(obj) == Wall:
 					# print("2")
 					thing_in_square = "wall"
@@ -250,9 +268,9 @@ class Game(object):
 			game_state.append(0)
 
 		if self.player.y - self.stairloc[1] > 0:
-			game_state.append(-1)
-		elif self.player.y - self.stairloc[1] < 0:
 			game_state.append(1)
+		elif self.player.y - self.stairloc[1] < 0:
+			game_state.append(-1)
 		else:
 			game_state.append(0)
 
@@ -269,21 +287,38 @@ class Game(object):
 		# Get the best event using q-learning
 		action = self.getAction(game_state)
 		# event = random.choice(ACTIONS)
-		if self.player.hp > 0 and not (self.player.x, self.player.y) == self.stairloc:
-			self.last_hp = self.player.hp
-			self.lastloc = (self.player.x, self.player.y)
+		if not (self.player.x, self.player.y) == self.stairloc:
+			if self.player.hp > 0:
+				self.last_hp = self.player.hp
+				self.lastloc = (self.player.x, self.player.y)
 
-			self.move_player(action[0], action[1])
-			game_state2 = self.get_state()
-			reward = 0
-			self.killed_enemy = False
-			reward = self.get_reward(game_state, action, game_state2)
-			self.updateQ(game_state, action, game_state2, reward)
+				self.move_player(action[0], action[1])
+				game_state2 = self.get_state()
+				reward = 0
+				self.killed_enemy = False
+				reward = self.get_reward(game_state, action, game_state2)
+				self.updateQ(game_state, action, game_state2, reward)
+			else:
+				self.move_player(action[0], action[1])
+				game_state2 = self.get_state()
+				reward = 0
+				self.killed_enemy = False
+				reward = self.get_reward(game_state, action, game_state2)
+				self.updateQ(game_state, action, game_state2, reward)
 
+		self.num_turns += 1
+		if self.num_turns >= 1000:
+			self.player.hp = 0
+			self.end_level()
+			self.num_turns = 0
+			self.episode += 1
+			if self.episode < EXPLORE:
+				self.epsilon -= EP_DIFF
 
 	def main(self):
 
 		self.episode = 0
+		self.num_turns = 0
 		self.ep_last_hp = None
 
 		self.dts = []
@@ -336,7 +371,11 @@ class Game(object):
 
 			if self.player.hp == 0 and self.ep_last_hp != 0:
 				self.episode += 1
+				if self.episode < EXPLORE:
+					self.epsilon -= EP_DIFF
 				print("episode", self.episode)
+				self.num_turns = 0
+
 
 			self.ep_last_hp = self.player.hp
 
@@ -433,7 +472,7 @@ class Game(object):
 		self.black_shade = UP
 		self.stairs_sound.play()
 
-	def load_level(self, game_over=False, seed=18):
+	def load_level(self, game_over=False, seed=None):
 		random.seed(seed)
 		if game_over:
 			self.level = 1
