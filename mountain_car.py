@@ -28,8 +28,8 @@ def QLearning(env, learning, discount, epsilon, min_eps, episodes):
     # Calculate episodic reduction in epsilon
     reduction = (epsilon - min_eps)/episodes
 
-    import sys
-    sys.exit(0)
+    # import sys
+    # sys.exit(0)
 
     # Run Q learning algorithm
     for i in range(episodes):
@@ -44,7 +44,7 @@ def QLearning(env, learning, discount, epsilon, min_eps, episodes):
 
         while done != True:
             # Render environment for last five episodes
-            if i >= (episodes - 20):
+            if i >= (episodes - 5):
                 env.render()
 
             # Determine next action - epsilon greedy strategy
@@ -87,8 +87,6 @@ def QLearning(env, learning, discount, epsilon, min_eps, episodes):
             ave_reward = np.mean(reward_list)
             ave_reward_list.append(ave_reward)
             reward_list = []
-
-        if (i+1) % 100 == 0:
             print('Episode {} Average Reward: {}'.format(i+1, ave_reward))
 
     env.close()
@@ -96,7 +94,7 @@ def QLearning(env, learning, discount, epsilon, min_eps, episodes):
     return ave_reward_list
 
 # Run Q-learning algorithm
-rewards = QLearning(env, 0.2, 0.9, 0.8, 0, 5000)
+rewards = QLearning(env, 0.15, 0.95, 0.8, 0, 3500)
 
 # Plot Rewards
 plt.plot(100*(np.arange(len(rewards)) + 1), rewards)
